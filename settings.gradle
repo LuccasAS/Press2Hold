@@ -10,6 +10,4 @@ pluginManagement {
 }
 
 include "common"
-include "v1.20.5"
 include "v1.21.9"
-include "v26.1"
