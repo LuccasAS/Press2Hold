@@ -1,5 +1,8 @@
 {
   "key.press2hold.latch": "Taste zum Halten",
   "key.category.press2hold": "Press2Hold",
-  "key.category.press2hold.press2hold": "Press2Hold"
+  "key.category.press2hold.press2hold": "Press2Hold",
+  "press2hold.hud_editor.title": "Press2Hold HUD",
+  "press2hold.hud_editor.reset": "Zurücksetzen",
+  "press2hold.hud_editor.hint": "Ziehen zum Verschieben, Scrollen zum Skalieren"
 }

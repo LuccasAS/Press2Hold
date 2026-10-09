@@ -1,7 +1,12 @@
 package com.kwesou;
 
 import com.kwesou.common.HoldManager;
+import com.kwesou.hud.HudConfig;
+import com.kwesou.hud.HudEditorScreen;
+import com.kwesou.hud.LatchHud;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
@@ -23,13 +28,13 @@ import java.util.Set;
 public class Press2HoldClient implements ClientModInitializer {
 
     private static KeyBinding toggleKey;
+    private static boolean openHudEditor;
     private static final HoldManager manager = new HoldManager();
 
     private final Map<String, Boolean> prevPhysicalState = new HashMap<>();
 
     @Override
     public void onInitializeClient() {
-
         toggleKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.press2hold.latch",
                 InputUtil.Type.KEYSYM,
@@ -37,11 +42,27 @@ public class Press2HoldClient implements ClientModInitializer {
                 KeyBinding.Category.create(Identifier.of("press2hold:press2hold"))
         ));
 
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(
+                ClientCommandManager.literal("press2hold")
+                        .then(ClientCommandManager.literal("gui").executes(context -> {
+                            // Opened next tick, otherwise the closing chat screen replaces it
+                            openHudEditor = true;
+                            return 1;
+                        }))
+        ));
+
+        HudConfig.load();
+
         ClientTickEvents.END_CLIENT_TICK.register(this::onTick);
         HudRenderCallback.EVENT.register(this::onHudRender);
     }
 
     private void onTick(MinecraftClient client) {
+        if (openHudEditor) {
+            openHudEditor = false;
+            client.setScreen(new HudEditorScreen(() -> manager.isLatched() ? manager.formatKeys() : ""));
+        }
+
         long windowHandle = client.getWindow().getHandle();
 
         if (manager.isLatched()) {
@@ -120,18 +141,13 @@ public class Press2HoldClient implements ClientModInitializer {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null || client.options.hudHidden) return;
 
+        if (client.currentScreen instanceof HudEditorScreen) return; // editor draws its own preview
+
         TextRenderer textRenderer = client.textRenderer;
-        int screenWidth  = client.getWindow().getScaledWidth();
-        int screenHeight = client.getWindow().getScaledHeight();
-
-        String label = "§fLatched: §e[" + manager.formatKeys() + "]";
-        int textWidth = textRenderer.getWidth(label);
-
-        int x = (screenWidth - textWidth) / 2;
-        int y = screenHeight - 49;
-
-        context.fill(x - 3, y - 2, x + textWidth + 3, y + 10, 0x88000000);
-        context.drawText(textRenderer, Text.literal(label), x, y, 0xFFFFFFFF, true);
+        String label = LatchHud.label(manager.formatKeys());
+        LatchHud.Bounds bounds = LatchHud.bounds(textRenderer, label,
+                client.getWindow().getScaledWidth(), client.getWindow().getScaledHeight());
+        LatchHud.render(context, textRenderer, label, bounds);
     }
 
     private Set<String> capturePressedKeys(MinecraftClient client) {
